@@ -20,6 +20,22 @@ namespace Gasolineras.DTO
 
         [JsonProperty("Longitud (WGS84)")]
         public string Longitud { get; set; }
+        [JsonIgnore]
+        public string UrlGoogleMaps 
+        { 
+            get 
+            {
+                try
+                {
+                    var url = @$"https://www.google.com/maps/search/?api=1&query={Latitud.Replace(',', '.')},{Longitud.Replace(',', '.')}";
+                    return url;
+                }
+                catch (Exception)
+                {
+                    return string.Empty;
+                }                 
+            } 
+        }
         public string Margen { get; set; }
         public string Municipio { get; set; }
 

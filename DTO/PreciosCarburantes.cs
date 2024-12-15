@@ -8,7 +8,7 @@ namespace Gasolineras.DTO
 {
     public class PreciosCarburantes
     {
-        public DateTime Fecha { get; set; }
+        public string Fecha { get; set; }
         public List<EstacionesTerrestres> ListaEESSPrecio { get; set; }
     }
 }

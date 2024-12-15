@@ -1,18 +1,24 @@
 using Gasolineras.DTO;
 using Newtonsoft.Json;
 using NCrontab;
+using Gasolineras.Services;
 
 namespace Gasolineras
 {
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> _logger;
-        private const string schedule = "* 23 * * *"; // every hour
+        private readonly ZotacMqttService _mqttService;
+        private const string schedule = "* 15 * * *"; // Esperamos hasta las 3 de la tarde
+        private const string schedule2 = "* 23 * * *"; // Esperamos hasta las 11 de la noche
         private readonly CrontabSchedule _cron = CrontabSchedule.Parse(schedule);
+        private readonly CrontabSchedule _cron2 = CrontabSchedule.Parse(schedule2);
 
-        public Worker(ILogger<Worker> logger)
+
+        public Worker(ILogger<Worker> logger, ZotacMqttService mqttService)
         {
             _logger = logger;
+            _mqttService = mqttService;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -28,7 +34,13 @@ namespace Gasolineras
 
                 var utcNow = DateTime.UtcNow;
                 var nextUtc = _cron.GetNextOccurrence(utcNow);
-                await Task.Delay(nextUtc - utcNow, stoppingToken);
+                var nextUtc2 = _cron2.GetNextOccurrence(utcNow);
+
+                if (nextUtc.Subtract(utcNow) > nextUtc2.Subtract(utcNow))
+                    await Task.Delay(nextUtc2 - utcNow, stoppingToken);
+                else
+                    await Task.Delay(nextUtc - utcNow, stoppingToken);
+
             }
         }
 
@@ -53,12 +65,16 @@ namespace Gasolineras
                         .Where(x => !string.IsNullOrEmpty(x.PrecioGasoleoA))
                         .OrderBy(x => EstacionesTerrestres.GetPrecio(x.PrecioGasoleoA));
 
-                    var result = comunidadMadrid
-                        .Select(x => $"{x.Localidad}: Calle {x.Direccion}, Precio = {EstacionesTerrestres.GetPrecio(x.PrecioGasoleoA)}");
+                    //var result = comunidadMadrid
+                    //    .Select(x => $"{x.Localidad}: Calle {x.Direccion}, url {x.UrlGoogleMaps}, Precio = {EstacionesTerrestres.GetPrecio(x.PrecioGasoleoA)}");
 
-                    Console.WriteLine(string.Join("\n\r", result));
+                    var cheapestPrice = comunidadMadrid.FirstOrDefault();
+                    await _mqttService.Publish(PublishTopics.Zotac.CheapestPrice, cheapestPrice);
+                    await _mqttService.Publish(PublishTopics.Zotac.All, comunidadMadrid.ToList());
 
-                    Console.WriteLine(message);
+                    //Console.WriteLine(string.Join("\n\r", result));
+
+                    //Console.WriteLine(message);
                 }
                 catch (Exception ex)
                 {
