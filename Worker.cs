@@ -30,7 +30,9 @@ namespace Gasolineras
                     _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                 }
 
-                await CallApi(stoppingToken);
+                var comunidadMadrid = await CallApiServiciosRESTCarburantes("Madrid", stoppingToken);
+                await _mqttService.Publish(PublishTopics.Zotac.CheapestPrice, comunidadMadrid.FirstOrDefault());
+                await _mqttService.Publish(PublishTopics.Zotac.All, comunidadMadrid.ToList());
 
                 await Delay(stoppingToken);
 
@@ -49,7 +51,7 @@ namespace Gasolineras
                 await Task.Delay((next - now), stoppingToken);
         }
 
-        private async Task CallApi(CancellationToken stoppingToken)
+        private async Task<IEnumerable<EstacionesTerrestresToZotac>> CallApiServiciosRESTCarburantes(string comunidad, CancellationToken stoppingToken)
         {
             using (var client = new HttpClient())
             {
@@ -58,15 +60,15 @@ namespace Gasolineras
                 try
                 {
                     var response = await client.GetAsync(string.Empty, stoppingToken);
-                    var message = await response.Content.ReadAsStringAsync();
+                    var message = await response.Content.ReadAsStringAsync(stoppingToken);
 
-                    if (string.IsNullOrEmpty(message)) return;
+                    if (string.IsNullOrEmpty(message)) return [];
 
                     var precios = JsonConvert.DeserializeObject<PreciosCarburantes>(message);
-                    if (precios == null) return;
+                    if (precios == null) return [];
 
                     var comunidadMadrid = precios.ListaEESSPrecio
-                        .Where(x => x.Localidad.Contains("Madrid", StringComparison.CurrentCultureIgnoreCase))
+                        .Where(x => x.Localidad.Contains(comunidad, StringComparison.CurrentCultureIgnoreCase))
                         .Where(x => !string.IsNullOrEmpty(x.PrecioGasoleoA))
                         .OrderBy(x => EstacionesTerrestres.GetPrecio(x.PrecioGasoleoA))
                         .Select(x => new EstacionesTerrestresToZotac
@@ -88,16 +90,7 @@ namespace Gasolineras
                                 stermetlico = x.stermetlico
                             });
 
-                    //var result = comunidadMadrid
-                    //    .Select(x => $"{x.Localidad}: Calle {x.Direccion}, url {x.UrlGoogleMaps}, Precio = {x.PrecioGasoleoA}");
-
-                    var cheapestPrice = comunidadMadrid.FirstOrDefault();
-                    await _mqttService.Publish(PublishTopics.Zotac.CheapestPrice, cheapestPrice);
-                    await _mqttService.Publish(PublishTopics.Zotac.All, comunidadMadrid.ToList());
-
-                    //Console.WriteLine(string.Join("\n\r", result));
-
-                    //Console.WriteLine(message);
+                    return comunidadMadrid;
                 }
                 catch (Exception ex)
                 {
@@ -106,6 +99,8 @@ namespace Gasolineras
                         _logger.LogError("Worker running at: {time}", DateTimeOffset.Now);
                         _logger.LogError("Error: {error}", ex);
                     }
+
+                    return [];
                 }
                 
             }
