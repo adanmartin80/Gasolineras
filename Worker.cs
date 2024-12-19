@@ -25,23 +25,28 @@ namespace Gasolineras
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                
-                CallApi(stoppingToken);
                 if (_logger.IsEnabled(LogLevel.Information))
                 {
                     _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                 }
 
-                var utcNow = DateTime.UtcNow;
-                var nextUtc = _cron.GetNextOccurrence(utcNow);
-                var nextUtc2 = _cron2.GetNextOccurrence(utcNow);
+                await CallApi(stoppingToken);
 
-                if (nextUtc.Subtract(utcNow) > nextUtc2.Subtract(utcNow))
-                    await Task.Delay(nextUtc2 - utcNow, stoppingToken);
-                else
-                    await Task.Delay(nextUtc - utcNow, stoppingToken);
+                await Delay(stoppingToken);
 
             }
+        }
+
+        private async Task Delay(CancellationToken stoppingToken)
+        {
+            var now = DateTime.Now;
+            var next = _cron.GetNextOccurrence(DateTime.Now);
+            var next2 = _cron2.GetNextOccurrence(DateTime.Now);
+
+            if (next - now > next2 - now)
+                await Task.Delay((next2 - now), stoppingToken);
+            else
+                await Task.Delay((next - now), stoppingToken);
         }
 
         private async Task CallApi(CancellationToken stoppingToken)
@@ -63,10 +68,28 @@ namespace Gasolineras
                     var comunidadMadrid = precios.ListaEESSPrecio
                         .Where(x => x.Localidad.Contains("Madrid", StringComparison.CurrentCultureIgnoreCase))
                         .Where(x => !string.IsNullOrEmpty(x.PrecioGasoleoA))
-                        .OrderBy(x => EstacionesTerrestres.GetPrecio(x.PrecioGasoleoA));
+                        .OrderBy(x => EstacionesTerrestres.GetPrecio(x.PrecioGasoleoA))
+                        .Select(x => new EstacionesTerrestresToZotac
+                            {
+                                CodigoPostal = x.CP,
+                                Direccion = x.Direccion,
+                                Horario = x.Horario,
+                                Latitud = x.Latitud,
+                                Longitud = x.Longitud,
+                                Localidad = x.Localidad,
+                                Margen = x.Margen,
+                                Municipio = x.Municipio,
+                                PrecioGasoleoA = EstacionesTerrestres.GetPrecio(x.PrecioGasoleoA),
+                                Provincia = x.Provincia,
+                                Remision = x.Remision,
+                                Rotulo = x.Rotulo,
+                                TipoVenta = x.TipoVenta,
+                                BioEtanol = x.BioEtanol,
+                                stermetlico = x.stermetlico
+                            });
 
                     //var result = comunidadMadrid
-                    //    .Select(x => $"{x.Localidad}: Calle {x.Direccion}, url {x.UrlGoogleMaps}, Precio = {EstacionesTerrestres.GetPrecio(x.PrecioGasoleoA)}");
+                    //    .Select(x => $"{x.Localidad}: Calle {x.Direccion}, url {x.UrlGoogleMaps}, Precio = {x.PrecioGasoleoA}");
 
                     var cheapestPrice = comunidadMadrid.FirstOrDefault();
                     await _mqttService.Publish(PublishTopics.Zotac.CheapestPrice, cheapestPrice);
