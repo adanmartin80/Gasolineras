@@ -42,8 +42,8 @@ namespace Gasolineras
         private async Task Delay(CancellationToken stoppingToken)
         {
             var now = DateTime.Now;
-            var next = _cron.GetNextOccurrence(DateTime.Now);
-            var next2 = _cron2.GetNextOccurrence(DateTime.Now);
+            var next = _cron.GetNextOccurrence(DateTime.Now.AddMinutes(1));
+            var next2 = _cron2.GetNextOccurrence(DateTime.Now.AddMinutes(1));
 
             if (next - now > next2 - now)
                 await Task.Delay((next2 - now), stoppingToken);
