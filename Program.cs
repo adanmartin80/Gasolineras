@@ -19,7 +19,7 @@ namespace Gasolineras
             builder.Services.AddSingleton((provider) => new MqttClientOptionsBuilder()
                                                             .WithCredentials(user, pass)
                                                             .WithKeepAlivePeriod(TimeSpan.MaxValue)
-                                                            .WithTcpServer("192.168.15.164", 1883)
+                                                            .WithTcpServer(provider.GetService<IConfiguration>()?["mqtt:ip"] ?? "192.168.15.164", provider.GetService<IConfiguration>()?.GetValue<int?>("mqtt:port") ?? 1883)
             );
             builder.Services.AddTransient<MqttFactory>();
             builder.Services.AddTransient<ZotacMqttService>();

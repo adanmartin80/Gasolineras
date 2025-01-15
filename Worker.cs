@@ -2,23 +2,28 @@ using Gasolineras.DTO;
 using Newtonsoft.Json;
 using NCrontab;
 using Gasolineras.Services;
+using System.Net.NetworkInformation;
 
 namespace Gasolineras
 {
     public class Worker : BackgroundService
     {
+        private readonly IConfiguration _configuration;
         private readonly ILogger<Worker> _logger;
         private readonly ZotacMqttService _mqttService;
-        private const string schedule = "* 15 * * *"; // Esperamos hasta las 3 de la tarde
-        private const string schedule2 = "* 23 * * *"; // Esperamos hasta las 11 de la noche
-        private readonly CrontabSchedule _cron = CrontabSchedule.Parse(schedule);
-        private readonly CrontabSchedule _cron2 = CrontabSchedule.Parse(schedule2);
+        private const string _SCHEDULE_ = "0 15 * * *"; // Esperamos hasta las 3 de la tarde
+        private const string _SCHEDULE2_ = "0 23 * * *"; // Esperamos hasta las 11 de la noche
+        private readonly CrontabSchedule _cron;
+        private readonly CrontabSchedule _cron2;
 
-
-        public Worker(ILogger<Worker> logger, ZotacMqttService mqttService)
+        public Worker(ILogger<Worker> logger, ZotacMqttService mqttService, IConfiguration configuration)
         {
             _logger = logger;
             _mqttService = mqttService;
+            _configuration = configuration;
+
+            _cron = CrontabSchedule.Parse(_configuration["schedule:firstHour"] ?? _SCHEDULE_);
+            _cron2 = CrontabSchedule.Parse(_configuration["schedule:lastHour"] ?? _SCHEDULE2_);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,8 +47,8 @@ namespace Gasolineras
         private async Task Delay(CancellationToken stoppingToken)
         {
             var now = DateTime.Now;
-            var next = _cron.GetNextOccurrence(DateTime.Now.AddMinutes(1));
-            var next2 = _cron2.GetNextOccurrence(DateTime.Now.AddMinutes(1));
+            var next = _cron.GetNextOccurrence(DateTime.Now);
+            var next2 = _cron2.GetNextOccurrence(DateTime.Now);
 
             if (next - now > next2 - now)
                 await Task.Delay((next2 - now), stoppingToken);
@@ -55,7 +60,7 @@ namespace Gasolineras
         {
             using (var client = new HttpClient())
             {
-                client.BaseAddress = new Uri(@"https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres");
+                client.BaseAddress = new Uri(_configuration["services:urlGasolineras"] ?? @"https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres");
 
                 try
                 {
