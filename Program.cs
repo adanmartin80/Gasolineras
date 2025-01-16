@@ -8,10 +8,10 @@ namespace Gasolineras
     {
         public static void Main(string[] args)
         {
-            var user = Environment.GetEnvironmentVariable("MQTT_USER", EnvironmentVariableTarget.User);
-            var pass = Environment.GetEnvironmentVariable("MQTT_PASS", EnvironmentVariableTarget.User);
-            var secretKey = Environment.GetEnvironmentVariable("SECRET_KEY", EnvironmentVariableTarget.User);
-            var accessKey = Environment.GetEnvironmentVariable("ACCESS_KEY", EnvironmentVariableTarget.User);
+            var user = Environment.GetEnvironmentVariable("MQTT_USER", EnvironmentVariableTarget.Process);
+            var pass = Environment.GetEnvironmentVariable("MQTT_PASS", EnvironmentVariableTarget.Process);
+            var secretKey = Environment.GetEnvironmentVariable("SECRET_KEY", EnvironmentVariableTarget.Process);
+            var accessKey = Environment.GetEnvironmentVariable("ACCESS_KEY", EnvironmentVariableTarget.Process);
 
 
             var builder = Host.CreateApplicationBuilder(args);
