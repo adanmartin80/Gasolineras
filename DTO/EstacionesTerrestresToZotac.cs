@@ -30,6 +30,21 @@ namespace Gasolineras.DTO
                 }
             }
         }
+        public string UrlWaze
+        {
+            get
+            {
+                try
+                {
+                    var url = @$"https://www.waze.com/ul?ll={Latitud.Replace(',', '.')}%2C{Longitud.Replace(',', '.')}&navigate=yes&zoom=17";
+                    return url;
+                }
+                catch (Exception)
+                {
+                    return string.Empty;
+                }
+            }
+        }
         public string Margen { get; set; }
         public string Municipio { get; set; }
         public float PrecioGasoleoA { get; set; }
