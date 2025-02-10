@@ -24,6 +24,12 @@ namespace Gasolineras
 
             _cron = CrontabSchedule.Parse(_configuration["schedule:firstHour"] ?? _SCHEDULE_);
             _cron2 = CrontabSchedule.Parse(_configuration["schedule:lastHour"] ?? _SCHEDULE2_);
+
+            _mqttService.Subscribe(PublishTopics.Zotac.HomeAssistantOnline, new Action<string?>(async (status) => 
+            { 
+                if (string.Equals(status, "online"))
+                    await SendMqttMessage(CancellationToken.None);
+            })).Wait();
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,13 +41,18 @@ namespace Gasolineras
                     _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                 }
 
-                var comunidadMadrid = await CallApiServiciosRESTCarburantes("Madrid", stoppingToken);
-                await _mqttService.Publish(PublishTopics.Zotac.CheapestPrice, comunidadMadrid.FirstOrDefault());
-                await _mqttService.Publish(PublishTopics.Zotac.All, comunidadMadrid.ToList());
+                await SendMqttMessage(stoppingToken);
 
                 await Delay(stoppingToken);
 
             }
+        }
+
+        private async Task SendMqttMessage(CancellationToken stoppingToken)
+        {
+            var comunidadMadrid = await CallApiServiciosRESTCarburantes("Madrid", stoppingToken);
+            await _mqttService.Publish(PublishTopics.Zotac.CheapestPrice, comunidadMadrid.FirstOrDefault());
+            await _mqttService.Publish(PublishTopics.Zotac.All, comunidadMadrid.ToList());
         }
 
         private async Task Delay(CancellationToken stoppingToken)

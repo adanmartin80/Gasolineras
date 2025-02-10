@@ -56,11 +56,11 @@ namespace Gasolineras.Services
             };
         }
 
-        public async Task Subscribe<T>(string topic, Action<T> action)
-            where T : new()
+        public async Task Subscribe<T>(string topic, Action<T?> action)
+            where T : class
         {
             await Connect();
-
+            
             if (!_mqttClient.IsConnected) return;
             var response = await _mqttClient.SubscribeAsync(topic);
 
@@ -70,7 +70,16 @@ namespace Gasolineras.Services
                 if (action == null || CancellationToken.IsCancellationRequested) return;
                 if (string.IsNullOrEmpty(e.ApplicationMessage.ConvertPayloadToString())) return;
                 var json = e.ApplicationMessage.ConvertPayloadToString();
-                var objetData = JsonSerializer.Deserialize<T>(json) ?? new();
+                T? objetData;
+                try
+                {
+                    objetData = JsonSerializer.Deserialize<T>(json);
+                }
+                catch
+                {
+                    objetData = (T)Convert.ChangeType(json, typeof(T));
+                }
+
                 await Task.Run(() => action(objetData));
             };
 
@@ -95,18 +104,6 @@ namespace Gasolineras.Services
             CancellationToken.ThrowIfCancellationRequested();
             _mqttClient.TryDisconnectAsync(MqttClientDisconnectOptionsReason.NormalDisconnection);
             _mqttClient?.Dispose();
-        }
-    }
-
-    public static class PublishTopics
-    {
-        public static class Zotac
-        {
-            /// <summary>
-            /// Usado para publicar el topic en el MQTT del Zotac.
-            /// </summary>
-            public static string CheapestPrice { get; private set; } = "homeassistant/petrolstation/cheapestprice";
-            public static string All { get; private set; } = "homeassistant/petrolstation/all";
         }
     }
 
